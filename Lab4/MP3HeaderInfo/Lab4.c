@@ -8,7 +8,7 @@
 
 FILE* fp;
 
-struct MP3Data 
+struct MP3Data
 {
 	long fileSize;
 	unsigned char* data;
@@ -16,9 +16,19 @@ struct MP3Data
 
 int initialize(int argc, char* argv[])
 {
-	// Open the file given on the command line
+	// Open the file given on the command line, 
+	// if a filename was passed in, it is a .MP3 file, and it can be opened
+	
 	if (argc != 2)
 	{
+		printf("Usage: %s filename.mp3\n", argv[0]);
+		return(EXIT_FAILURE);
+	}
+	
+	char *mp3Found = strstr(strlwr(argv[1]), ".mp3");
+	if (mp3Found == NULL)
+	{
+		printf("File specified, %s, is not a .MP3 file\n\n", argv[1]);
 		printf("Usage: %s filename.mp3\n", argv[0]);
 		return(EXIT_FAILURE);
 	}
@@ -64,6 +74,19 @@ int readFile(struct MP3Data* mp3Data)
 	return(EXIT_SUCCESS);
 }
 
+long searchForSyncBits(struct MP3Data* mp3Data)
+{
+	for (long i = 0; i < mp3Data->fileSize; i++)
+	{
+		if (mp3Data->data[i] == (unsigned char)0xFF && (mp3Data->data[i + 1] & 0xF0) == (unsigned char)0xF0)
+		{
+			return i; //found the offset to the start of the MP3 header data - return the offset
+			break;
+		}
+	}
+	return(-1); //offest not found, return -1
+}
+
 void printbinchar(unsigned char character)
 {
 	char output[9];
@@ -71,32 +94,12 @@ void printbinchar(unsigned char character)
 	printf("%s\n\n", output);
 }
 
-void searchForSyncBytes(struct MP3Data* mp3Data)
-{
-	for (long i = 0; i < mp3Data->fileSize; i++)
-	{
-		if (mp3Data->data[i] == (unsigned char)0xFF && (mp3Data->data[i + 1] & 0xF0)  == (unsigned char)0xF0)
-		{
-			printf("sync bytes at offset: ");
-            printf("byte # : %ld\n", i);
-            printf("found byte0\n");
-            printbinchar(mp3Data->data[i]);
-			printf("found byte1\n");
-            printbinchar(mp3Data->data[i + 1]);
-			printf("found byte2\n");
-            printbinchar(mp3Data->data[i + 2]);
-			printf("found byte3\n");
-            printbinchar(mp3Data->data[i + 3]);
-            break;
-		}
-	}
-}
-
 int main(int argc, char** argv)
 {
 	if (initialize(argc, argv) == EXIT_FAILURE)
 	{
-		fclose(fp);				// close and free the file
+		if (fp != NULL)
+			fclose(fp);				// close and free the file
 		exit(EXIT_FAILURE);		// return 0;
 	}
 
@@ -108,7 +111,23 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);		// return 0;
 	}
 
-	searchForSyncBytes(&mp3Data);
+	long headerOffset = searchForSyncBits(&mp3Data);
+
+	if (headerOffset == -1)
+	{
+		printf("Could not find MP3 header info\n");
+		exit(EXIT_FAILURE);
+	}
+
+	printf("found byte0\n");
+	printbinchar(mp3Data.data[headerOffset]);
+	printf("found byte1\n");
+	printbinchar(mp3Data.data[headerOffset+1]);
+	printf("found byte2\n");
+	printbinchar(mp3Data.data[headerOffset+2]);
+	printf("found byte3\n");
+	printbinchar(mp3Data.data[headerOffset+3]);
+	printf("\n\nthe end\n\n");
 
 	exit(EXIT_SUCCESS);		// return 1;
 }
