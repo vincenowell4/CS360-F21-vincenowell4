@@ -1,7 +1,9 @@
 /* CS360 Lab 4: C */
-
 #include <stdio.h>
 #include <stdlib.h>
+
+#define MIN_FILE_SIZE 1
+#define MAX_FILE_SIZE 1048576
 
 int main( int argc, char ** argv )
 {
@@ -27,13 +29,13 @@ int main( int argc, char ** argv )
 	size = ftell(fp);				// how far from the beginning?
 	rewind(fp);						// go back to the beginning
 	
-	if( size < 1 || size > 10485760 )
+	if( size < MIN_FILE_SIZE || size > MAX_FILE_SIZE )
 	{
 		printf("File size is not within the allowed range\n"); 
 		goto END;
 	}
-	
-	printf( "File size: %ld MB\n", size/1048576 );
+                                                
+	printf( "File size: %ld MB\n", size/MAX_FILE_SIZE );
 	// Allocate memory on the heap for a copy of the file
 	unsigned char * data = (unsigned char *)malloc(size);
 	// Read it into our block of memory
