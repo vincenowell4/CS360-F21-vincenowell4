@@ -1,6 +1,7 @@
 /* CS360 Lab 4: C */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 int main( int argc, char ** argv )
 {
