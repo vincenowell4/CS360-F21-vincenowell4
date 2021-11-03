@@ -54,5 +54,6 @@ int main( int argc, char ** argv )
 	// Clean up
 END:
 	fclose(fp);				// close and free the file
+    free (data);
 	exit(EXIT_SUCCESS);		// or return 0;
 }
