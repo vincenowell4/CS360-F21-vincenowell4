@@ -3,7 +3,8 @@
 #include <stdlib.h>
 
 #define MIN_FILE_SIZE 1
-#define MAX_FILE_SIZE 1048576
+#define MAX_FILE_SIZE 10485760
+#define ONE_MEG 1048576
 
 int main( int argc, char ** argv )
 {
@@ -35,7 +36,7 @@ int main( int argc, char ** argv )
 		goto END;
 	}
                                                 
-	printf( "File size: %ld MB\n", size/MAX_FILE_SIZE );
+	printf( "File size: %ld MB\n", size/ONE_MEG );
 	// Allocate memory on the heap for a copy of the file
 	unsigned char * data = (unsigned char *)malloc(size);
 	// Read it into our block of memory
