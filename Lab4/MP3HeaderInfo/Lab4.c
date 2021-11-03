@@ -33,14 +33,14 @@ int main( int argc, char ** argv )
 		goto END;
 	}
 	
-	printf( "File size: %d MB\n", size/1048576 );
+	printf( "File size: %ld MB\n", size/1048576 );
 	// Allocate memory on the heap for a copy of the file
 	unsigned char * data = (unsigned char *)malloc(size);
 	// Read it into our block of memory
 	size_t bytesRead = fread( data, sizeof(unsigned char), size, fp );
 	if( bytesRead != size )
 	{
-		printf( "Error reading file. Unexpected number of bytes read: %d\n",bytesRead );
+		printf( "Error reading file. Unexpected number of bytes read: %I64d\n",bytesRead );
 		goto END;
 	}
 	
