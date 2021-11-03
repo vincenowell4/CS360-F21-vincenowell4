@@ -36,7 +36,7 @@ int main( int argc, char ** argv )
 		goto END;
 	}
                                                 
-	printf( "File size: %ld MB\n", size/ONE_MEG );
+	printf( "File size: %.2f MB\n", (float)size/ONE_MEG );
 	// Allocate memory on the heap for a copy of the file
 	unsigned char * data = (unsigned char *)malloc(size);
 	// Read it into our block of memory
