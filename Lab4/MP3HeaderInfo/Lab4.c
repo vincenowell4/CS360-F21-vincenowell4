@@ -1,16 +1,30 @@
 /* CS360 Lab 4: C */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MIN_FILE_SIZE 1
 #define MAX_FILE_SIZE 10485760
 #define ONE_MEG 1048576
 
+const int bitRates[] = { 0,32,40,48,56,64,80,96,112,128,160,192,224,256,320 };
+const int sampleRates[] = { 44100,48000,32000 };
+
 FILE* fp;
 
 struct MP3Data
 {
+	char* fileName;
 	long fileSize;
+	long headerOffset;
+	int isMPEG1;
+	int isLayer3;
+	int bitRate;
+	int sampleRate;
+	int hasErrorProtection;
+	int hasCopyright;
+	int isOriginal;
+	int alert;
 	unsigned char* data;
 };
 
@@ -39,6 +53,7 @@ int initialize(int argc, char* argv[])
 		printf("Can't open file %s\n", argv[1]);
 		return(EXIT_FAILURE);
 	}
+
 	return (EXIT_SUCCESS);
 }
 
@@ -60,7 +75,7 @@ int readFile(struct MP3Data* mp3Data)
 
 	mp3Data->fileSize = size;
 
-	printf("File size: %.2f MB\n", (float)size / ONE_MEG);
+	//printf("File size: %.2f MB\n", (float)size / ONE_MEG);
 	// Allocate memory on the heap for a copy of the file
 	mp3Data->data = (unsigned char*)malloc(size);
 	// Read it into our block of memory
@@ -76,15 +91,45 @@ int readFile(struct MP3Data* mp3Data)
 
 long searchForSyncBits(struct MP3Data* mp3Data)
 {
-	for (long i = 0; i < mp3Data->fileSize; i++)
+	mp3Data->headerOffset = -1; //assume offset won't be found
+	for (long i = 0; i < (mp3Data->fileSize - 16); i++)
 	{
 		if (mp3Data->data[i] == (unsigned char)0xFF && (mp3Data->data[i + 1] & 0xF0) == (unsigned char)0xF0)
 		{
-			return i; //found the offset to the start of the MP3 header data - return the offset
-			break;
+			mp3Data->headerOffset = i;
+			break; //found the offset to the start of the MP3 header data - stop searching
 		}
 	}
-	return(-1); //offest not found, return -1
+	return mp3Data->headerOffset; 
+}
+
+int mpegLayer3Check(struct MP3Data* mp3Data)
+{
+	mp3Data->isMPEG1 = ((mp3Data->data[mp3Data->headerOffset + 1] & 0x08) == 8);
+	mp3Data->isLayer3 = ((mp3Data->data[mp3Data->headerOffset + 1] & 0x06) == 2);
+	return (mp3Data->isMPEG1 && mp3Data->isLayer3);
+}
+
+int copyrightCheck(struct MP3Data* mp3Data)
+{
+	mp3Data->hasCopyright = ((mp3Data->data[mp3Data->headerOffset + 3] & 0x08) == 8);
+	mp3Data->isOriginal = ((mp3Data->data[mp3Data->headerOffset + 3] & 0x04) == 4);
+	mp3Data->alert = (mp3Data->hasCopyright && !mp3Data->isOriginal);
+	return mp3Data->alert;
+}
+
+void getMP3Data(struct MP3Data* mp3Data)
+{
+	int bitrate = ((mp3Data->data[mp3Data->headerOffset + 2] & 0xF0))/16;
+	int samplerate = ((mp3Data->data[mp3Data->headerOffset + 2] & 0x0C))/4;
+
+	mp3Data->bitRate = bitRates[bitrate];
+	mp3Data->sampleRate = sampleRates[samplerate];
+
+	//printf("\n\nBit rate: %d kbps", mp3Data->bitRate);
+	//printf("\n\nSample rate: %d Hz", mp3Data->sampleRate);
+
+	return;
 }
 
 void printbinchar(unsigned char character)
@@ -94,8 +139,50 @@ void printbinchar(unsigned char character)
 	printf("%s\n\n", output);
 }
 
+void showHeader(struct MP3Data* mp3Data)
+{
+	printf("\n\nfound byte0 at offset %ld\n", mp3Data->headerOffset);
+	printbinchar(mp3Data->data[mp3Data->headerOffset]);
+	printf("found byte1\n");
+	printbinchar(mp3Data->data[mp3Data->headerOffset + 1]);
+	printf("found byte2\n");
+	printbinchar(mp3Data->data[mp3Data->headerOffset + 2]);
+	printf("found byte3\n");
+	printbinchar(mp3Data->data[mp3Data->headerOffset + 3]);
+	printf("\n");
+}
+
+void displayMP3Data(struct MP3Data* mp3Data)
+{
+	//system("cls");
+	printf("********** MP3 Header Info **********");
+	printf("\nFile name: %s", mp3Data->fileName);
+	printf("\nFile size: %.2f MB", (float)mp3Data->fileSize / ONE_MEG);
+
+	//printf("\n\nMP3 copyrighted bit: %d", mp3Data->hasCopyright);
+	//printf("\nMP3 original bit: %d", mp3Data->isOriginal);
+
+	printf("\n\nBit rate   : %d kbps", mp3Data->bitRate);
+	printf("\nSample rate: %.1f kHz\n\n", (float)mp3Data->sampleRate/1000);
+
+	if (mp3Data->hasCopyright)
+		printf("MP3 file is copyrighted");
+	else
+		printf("MP3 file is not copyrighted");
+	
+	if (mp3Data->isOriginal)
+		printf("\nMP3 file is original file");
+	else
+		printf("\nMP3 file is a copy of the original");
+
+
+	printf("\n\n");
+}
+
 int main(int argc, char** argv)
 {
+	system("cls");
+
 	if (initialize(argc, argv) == EXIT_FAILURE)
 	{
 		if (fp != NULL)
@@ -104,30 +191,50 @@ int main(int argc, char** argv)
 	}
 
 	struct MP3Data mp3Data;
+	mp3Data.fileName = argv[1];
 	mp3Data.data = NULL;
+	//printf("File name: %s:\n", mp3Data.fileName);
+
 	if (readFile(&mp3Data) == EXIT_FAILURE)
 	{
 		fclose(fp);				// close and free the file
 		exit(EXIT_FAILURE);		// return 0;
 	}
 
-	long headerOffset = searchForSyncBits(&mp3Data);
-
-	if (headerOffset == -1)
+	if (searchForSyncBits(&mp3Data) == -1)
 	{
 		printf("Could not find MP3 header info\n");
 		exit(EXIT_FAILURE);
 	}
 
-	printf("found byte0\n");
-	printbinchar(mp3Data.data[headerOffset]);
-	printf("found byte1\n");
-	printbinchar(mp3Data.data[headerOffset+1]);
-	printf("found byte2\n");
-	printbinchar(mp3Data.data[headerOffset+2]);
-	printf("found byte3\n");
-	printbinchar(mp3Data.data[headerOffset+3]);
-	printf("\n\nthe end\n\n");
+	if(mpegLayer3Check(&mp3Data) == 0)
+	{
+		printf("MP3 file is not MPEG version 1 Layer3\n");
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		//printf("MP3 file is MPEG version 1 Layer 3\n");
+	}
+
+	if (copyrightCheck(&mp3Data) == 1)
+	{
+		printf("MP3 is a copy of a copyrighted file!!");
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		//printf("\nMP3 copyrighted bit: %d",mp3Data.hasCopyright);
+		//printf("\n\nMP3 original bit: %d", mp3Data.isOriginal);
+
+	}
+
+	getMP3Data(&mp3Data);
+
+	displayMP3Data(&mp3Data);
+
+
+	showHeader(&mp3Data);
 
 	exit(EXIT_SUCCESS);		// return 1;
 }
